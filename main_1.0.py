@@ -6,6 +6,7 @@
 
 import board
 import busio
+import digitalio
 import displayio
 import terminalio
 import audiocore
@@ -20,25 +21,24 @@ import adafruit_bitmap_font.bitmap_font as bitmap_font
 # pins
 audio = audiopwmio.PWMAudioOut(board.GP14)  # speaker pin
 
-led_green = digitalio.DigitalInOut(board.)
+led_green = digitalio.DigitalInOut(board.GP) # valitse PIN
 led_green.direction = digitalio.Direction.OUT
-
-led_yellow = digitalio.DigitalInOut(board.)
+led_yellow = digitalio.DigitalInOut(board.GP) # valitse PIN
 led_yellow.direction = digitalio.Direction.OUT
-
-led_red = digitalio.DigitalInOut(board.)
+led_red = digitalio.DigitalInOut(board.GP) # valitse PIN
 led_red.direction = digitalio.Direction.OUT
 
-switch = True  # TODO placeholder
+switch = True
 
 # i2c
 i2c = busio.I2C(scl=board.GP1, sda=board.GP0)  # jaetaan anturille ja näytölle
-
 scd4x = adafruit_scd4x.SCD4X(i2c)  # scd40. oletusosoite 0x62
-
+displayio.release_displays()
 display_bus = i2cdisplaybus.I2CDisplayBus(i2c, device_address=0x3C)  # display address
-
 display = adafruit_displayio_ssd1306.SSD1306(display_bus, width=128, height=32)  # oled definition
+font = bitmap_font.load_font("/fonts/Arial-Bold-24.bdf")
+
+keyword = False
 
 
 def measure():
@@ -52,7 +52,7 @@ def measure():
         temp = round(scd4x.temperature, 1)
         hum = round(scd4x.relative_humidity, 1)
     else:
-        co2, temp, hum = 20
+        co2, temp, hum = 20, 20.0, 50.0
     return co2, temp, hum
 
 
@@ -70,15 +70,16 @@ def play_sound(filename):
     Plays the selected audio file.
     """
 
-    # try the filename TODO
     path = "sounds/"
-    with open(path + filename + ".wav", "rb") as wave_file:
-        wave = audiocore.WaveFile(wave_file)
-        audio.play(wave)
-        while audio.playing:
-            print("soittaa...")
-            # pass	# koodi, joka halutaan suoritettavan kun ääni soi
-        print("valmis")
+    try:
+        with open(path + filename + ".wav", "rb") as wave_file:
+            wave = audiocore.WaveFile(wave_file)
+            audio.play(wave)
+            while audio.playing:
+                print("soittaa...")
+                # pass	# koodi, joka halutaan suoritettavan kun ääni soi
+    except OSError as e:
+        print("Tiedostoa ei löytynyt:", path + filename + ".wav")
 
 
 def draw_text(number, unit):
@@ -86,15 +87,9 @@ def draw_text(number, unit):
     Draws text on the OLED display.
     """
 
-    displayio.release_displays()
-    # Lataa fontti (vaihda polku tarpeen mukaan)
-    font = bitmap_font.load_font("/fonts/Arial-Bold-24.bdf")
     main_group = displayio.Group()
     line1 = label.Label(font, text=number + unit, color=0xFFFFFF, x=0, y=12)
-    # line2 = label.Label(font, text="Ilmankosteus", color=0xFFFFFF, x=0, y=12)
-
     main_group.append(line1)
-    # main_group.append(line2)
     display.root_group = main_group
 
 
@@ -135,22 +130,22 @@ def display():
         time.sleep(10)
 
 while True:
-    if switch is True:  # TODO kytkinlogiikka
+    if switch:
         co2, temp, hum = measure()
         if co2 < 800:
-            led_green = True
-            led_yellow = False
-            led_red = False
+            led_green.value = True
+            led_yellow.value = False
+            led_red.value = False
             if keyword is True:
                 speak()
 
             else:
                 display()
 
-        elif co2 => 800 and co2 =< 1200:
-            led_green = False
-            led_yellow = True
-            led_red = False
+        elif 800 <= co2 <= 1200:
+            led_green.value = False
+            led_yellow.value = True
+            led_red.value = False
             if keyword is True:
                 speak()
 
@@ -158,9 +153,9 @@ while True:
                 display()
 
         elif co2 > 1200:
-            led_green = False
-            led_yellow = False
-            led_red = True
+            led_green.value = False
+            led_yellow.value = False
+            led_red.value = True
 
             if keyword is True:
                 speak()
